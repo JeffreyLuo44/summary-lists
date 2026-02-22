@@ -1,0 +1,38 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);MVVMTK0045</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.2" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="Microsoft.Maui.Controls" Version="9.0.111" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\SummaryLists.Mobile\Models\ListModel.cs" Link="Sources\Models\ListModel.cs" />
+    <Compile Include="..\SummaryLists.Mobile\Models\ListItemModel.cs" Link="Sources\Models\ListItemModel.cs" />
+    <Compile Include="..\SummaryLists.Mobile\Services\AuthSession.cs" Link="Sources\Services\AuthSession.cs" />
+    <Compile Include="..\SummaryLists.Mobile\Services\IApiClient.cs" Link="Sources\Services\IApiClient.cs" />
+    <Compile Include="..\SummaryLists.Mobile\Services\IAuthService.cs" Link="Sources\Services\IAuthService.cs" />
+    <Compile Include="..\SummaryLists.Mobile\Services\IDialogService.cs" Link="Sources\Services\IDialogService.cs" />
+    <Compile Include="..\SummaryLists.Mobile\Services\INavigationService.cs" Link="Sources\Services\INavigationService.cs" />
+    <Compile Include="..\SummaryLists.Mobile\Extensions\MauiPropertyExtensions.cs" Link="Sources\Extensions\MauiPropertyExtensions.cs" />
+    <Compile Include="..\SummaryLists.Mobile\ViewModels\ViewModelBase.cs" Link="Sources\ViewModels\ViewModelBase.cs" />
+    <Compile Include="..\SummaryLists.Mobile\ViewModels\LoginViewModel.cs" Link="Sources\ViewModels\LoginViewModel.cs" />
+    <Compile Include="..\SummaryLists.Mobile\ViewModels\ListsViewModel.cs" Link="Sources\ViewModels\ListsViewModel.cs" />
+  </ItemGroup>
+
+</Project>
