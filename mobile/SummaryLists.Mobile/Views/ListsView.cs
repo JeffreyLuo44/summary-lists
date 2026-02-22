@@ -118,9 +118,13 @@ public sealed class ListsView : ContentPage
 
         var summaryBorder = new Border
         {
-            Stroke = Color.FromArgb("#BFD0F0"),
+            Stroke = Application.Current?.RequestedTheme == AppTheme.Dark
+                ? Color.FromArgb("#36507E")
+                : Color.FromArgb("#BFD0F0"),
             StrokeThickness = 1,
-            BackgroundColor = Color.FromArgb("#F5F8FF"),
+            BackgroundColor = Application.Current?.RequestedTheme == AppTheme.Dark
+                ? Color.FromArgb("#1E2D46")
+                : Color.FromArgb("#F5F8FF"),
             Padding = 12,
             StrokeShape = new RoundRectangle { CornerRadius = new CornerRadius(12) },
             Content = new VerticalStackLayout
