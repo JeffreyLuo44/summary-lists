@@ -31,6 +31,11 @@ button:hover {
   filter: brightness(0.97);
 }
 
+button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 button.ghost {
   background: #dce7ff;
   color: #16356f;
@@ -127,6 +132,36 @@ input {
   border-radius: 12px;
   padding: 0.9rem;
   background: #f6f9ff;
+}
+
+.summary-card-loading {
+  opacity: 0.82;
+}
+
+.summary-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.regen-btn {
+  min-width: 180px;
+  transition: background 0.15s ease, transform 0.12s ease, opacity 0.12s ease;
+}
+
+.regen-btn:hover:not(:disabled) {
+  background: #0b4cb2;
+  transform: translateY(-1px);
+}
+
+.regen-btn.loading {
+  background: #4f6fae;
+}
+
+.summary-status {
+  color: #5b6b88;
+  font-size: 0.85rem;
 }
 
 .summary-card h2 {

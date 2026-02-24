@@ -81,6 +81,7 @@ function AppContent({ user }: { user: User }) {
   const [newItemNote, setNewItemNote] = useState("");
   const [busyLists, setBusyLists] = useState(false);
   const [busyItems, setBusyItems] = useState(false);
+  const [busyRegenerateSummary, setBusyRegenerateSummary] = useState(false);
   const [error, setError] = useState("");
 
   const selectedList = useMemo(
@@ -180,15 +181,18 @@ function AppContent({ user }: { user: User }) {
   };
 
   const regenerateSummary = async () => {
-    if (!selectedList) {
+    if (!selectedList || busyRegenerateSummary) {
       return;
     }
     setError("");
+    setBusyRegenerateSummary(true);
     try {
       const updated = await api.regenerateSummary(user, selectedList.id);
       setLists((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setBusyRegenerateSummary(false);
     }
   };
 
@@ -286,12 +290,21 @@ function AppContent({ user }: { user: User }) {
 
       {selectedList ? (
         <section className="panel">
-          <div className="summary-card">
+          <div className={busyRegenerateSummary ? "summary-card summary-card-loading" : "summary-card"}>
             <div>
               <h2>{selectedList.title}</h2>
               <p>{selectedList.summary || "No summary yet."}</p>
             </div>
-            <button onClick={regenerateSummary}>Regenerate Summary</button>
+            <div className="summary-actions">
+              <button
+                className={busyRegenerateSummary ? "regen-btn loading" : "regen-btn"}
+                onClick={regenerateSummary}
+                disabled={busyRegenerateSummary}
+              >
+                {busyRegenerateSummary ? "Regenerating..." : "Regenerate Summary"}
+              </button>
+              {busyRegenerateSummary ? <span className="summary-status">Generating summary...</span> : null}
+            </div>
           </div>
 
           <form className="inline-form" onSubmit={saveListTitle}>

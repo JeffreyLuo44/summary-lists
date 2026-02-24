@@ -46,7 +46,13 @@ public partial class ListsViewModel : ViewModelBase
     private bool hasSelectedList;
 
     [ObservableProperty]
+    private bool isRegeneratingSummary;
+
+    [ObservableProperty]
     private ListModel? selectedList;
+
+    public string RegenerateSummaryButtonText => IsRegeneratingSummary ? "Regenerating..." : "Regenerate Summary";
+    public bool CanRegenerateSummary => HasSelectedList && !IsRegeneratingSummary;
 
     public ListsViewModel(
         IApiClient apiClient,
@@ -76,6 +82,17 @@ public partial class ListsViewModel : ViewModelBase
         }
 
         _ = LoadSelectedListItemsSafeAsync();
+    }
+
+    partial void OnIsRegeneratingSummaryChanged(bool value)
+    {
+        OnPropertyChanged(nameof(RegenerateSummaryButtonText));
+        OnPropertyChanged(nameof(CanRegenerateSummary));
+    }
+
+    partial void OnHasSelectedListChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanRegenerateSummary));
     }
 
     [RelayCommand]
@@ -199,18 +216,30 @@ public partial class ListsViewModel : ViewModelBase
     [RelayCommand]
     private async Task RegenerateSummaryAsync()
     {
-        if (SelectedList is null)
+        if (SelectedList is null || IsRegeneratingSummary)
         {
             return;
         }
 
-        await RunBusyAsync(async () =>
+        IsRegeneratingSummary = true;
+        ErrorMessage = string.Empty;
+        try
         {
+            // Yield once so UI can immediately render loading state.
+            await Task.Yield();
             var updated = await _apiClient.RegenerateSummaryAsync(SelectedList.Id);
             ReplaceList(updated);
             SelectedList = updated;
             ReorderListsByUpdatedAt();
-        });
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            IsRegeneratingSummary = false;
+        }
     }
 
     [RelayCommand]

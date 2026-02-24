@@ -18,6 +18,10 @@ This backend provides:
 1. Update `.firebaserc` with your Firebase project id.
 2. Install deps:
    - `cd functions && npm install`
+3. Configure summary generation environment variables (functions runtime):
+   - Required for AI summaries: `GEMINI_API_KEY`
+   - Optional model override: `GEMINI_MODEL` (default: `gemini-1.5-flash`)
+   - If `GEMINI_API_KEY` is not set, backend falls back to deterministic non-AI summaries.
 
 ## Run locally
 

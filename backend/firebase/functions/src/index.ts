@@ -118,17 +118,206 @@ function parseOptionalPosition(value: unknown): number {
 
 function fallbackSummary(listTitle: string, items: string[]): string {
   if (items.length === 0) {
-    return `This list tracks: ${listTitle}.`;
+    return `This list tracks ${listTitle}. It currently has no items, so add entries to generate a more specific summary.`;
   }
-  const preview = items.slice(0, 3).join(", ");
-  return `This list tracks ${listTitle}. Key entries include: ${preview}.`;
+
+  const cleaned = items.map((item) => item.trim()).filter((item) => item.length > 0);
+  const preview = cleaned.slice(0, 4);
+  const remaining = cleaned.length - preview.length;
+  const includes = preview.length > 1
+    ? `${preview.slice(0, -1).join(", ")} and ${preview[preview.length - 1]}`
+    : preview[0];
+
+  if (remaining > 0) {
+    return `This list tracks ${listTitle}. It includes ${includes}, plus ${remaining} more item${remaining === 1 ? "" : "s"}.`;
+  }
+
+  return `This list tracks ${listTitle}. It includes ${includes}.`;
+}
+
+function getGeminiApiKey(): string {
+  return String(process.env.GEMINI_API_KEY || "").trim();
+}
+
+function getGeminiModel(): string {
+  const configured = String(process.env.GEMINI_MODEL || "").trim();
+  return configured.length > 0 ? configured : "gemini-2.5-flash";
+}
+
+function buildSummaryPrompt(listTitle: string, items: string[]): string {
+  const normalizedTitle = listTitle.trim() || "Untitled";
+  const listItems = items
+    .map((item, index) => `${index + 1}. ${item.trim()}`)
+    .filter((line) => line.length > 3)
+    .join("\n");
+
+  return [
+    "You are summarizing a user's checklist/list for display in an app.",
+    "Output format requirements (strict):",
+    "1) Total length must be at least 100 words.",
+    "2) If items are mixed or unrelated, explicitly state some of the items and include a sentence in this form:",
+    "\"This list includes A, B, and C.\"",
+    "3) Do not use bullet points or numbered lists.",
+    "4) Keep plain English and practical detail.",
+    "5) Every sentence must be complete and fully finished.",
+    "6) End with a complete final sentence. Do not cut off mid-thought.",
+    "",
+    `List title: ${normalizedTitle}`,
+    "Items:",
+    listItems.length > 0 ? listItems : "(no items)",
+  ].join("\n");
+}
+
+async function generateGeminiSummary(listTitle: string, items: string[]): Promise<string | null> {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
+    console.warn("[gemini] GEMINI_API_KEY missing; using fallback summary.");
+    return null;
+  }
+
+  const model = getGeminiModel();
+  const prompt = buildSummaryPrompt(listTitle, items);
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          parts: [{ text: prompt }],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.5,
+        maxOutputTokens: 1000,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text().catch(() => "");
+    console.error("[gemini] generateContent failed", {
+      status: response.status,
+      statusText: response.statusText,
+      model,
+      endpoint,
+      errorBody,
+    });
+    return null;
+  }
+
+  const data = (await response.json()) as {
+    candidates?: Array<{
+      finishReason?: string;
+      content?: { parts?: Array<{ text?: string }> };
+    }>;
+  };
+  console.info("[gemini] generateContent response", {
+    model,
+    itemCount: items.length,
+    candidateCount: data.candidates?.length ?? 0,
+    finishReason: data.candidates?.[0]?.finishReason ?? "unknown",
+    responsePreview: JSON.stringify(data).slice(0, 1200),
+  });
+
+  const firstText = data.candidates?.[0]?.content?.parts?.map((part) => String(part.text || "")).join(" ").trim() ?? "";
+  const firstFinishReason = data.candidates?.[0]?.finishReason ?? "";
+  const hasCompleteEnding = /[.!?]["')\]]?\s*$/.test(firstText);
+  const wordCount = firstText.split(/\s+/).filter((w) => w.length > 0).length;
+  const needsContinuation =
+    firstText.length > 0 &&
+    (wordCount < 100 || !hasCompleteEnding || firstFinishReason.toUpperCase() === "MAX_TOKENS");
+
+  let text = firstText;
+  if (needsContinuation) {
+    const continuationPrompt = [
+      "Continue and finish the summary below.",
+      "Do not restart and do not repeat prior sentences.",
+      "Return complete sentences and ensure a complete final sentence.",
+      "Keep consistent with the same list items and tone.",
+      "",
+      "Current partial summary:",
+      firstText,
+    ].join("\n");
+
+    const continuationResponse = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: continuationPrompt }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 1000,
+        },
+      }),
+    });
+
+    if (continuationResponse.ok) {
+      const continuationData = (await continuationResponse.json()) as {
+        candidates?: Array<{
+          finishReason?: string;
+          content?: { parts?: Array<{ text?: string }> };
+        }>;
+      };
+      const continuationText = continuationData.candidates?.[0]?.content?.parts
+        ?.map((part) => String(part.text || ""))
+        .join(" ")
+        .trim();
+
+      console.info("[gemini] continuation response", {
+        model,
+        finishReason: continuationData.candidates?.[0]?.finishReason ?? "unknown",
+        responsePreview: JSON.stringify(continuationData).slice(0, 1200),
+      });
+
+      if (continuationText) {
+        text = `${firstText} ${continuationText}`.replace(/\s+/g, " ").trim();
+      }
+    } else {
+      const continuationError = await continuationResponse.text().catch(() => "");
+      console.warn("[gemini] continuation failed", {
+        status: continuationResponse.status,
+        statusText: continuationResponse.statusText,
+        continuationError,
+      });
+    }
+  }
+
+  if (!text) {
+    console.warn("[gemini] Empty summary text returned", {
+      model,
+      data,
+    });
+    return null;
+  }
+
+  return text;
 }
 
 async function generateSummary(listTitle: string, items: string[]): Promise<string> {
+  try {
+    const aiSummary = await generateGeminiSummary(listTitle, items);
+    if (aiSummary) {
+      return aiSummary;
+    }
+  } catch {
+    console.error("[gemini] Unexpected error during summary generation; using fallback.");
+  }
+
+  console.info("[gemini] Falling back to deterministic summary.");
   return fallbackSummary(listTitle, items);
 }
 
-export const api = onRequest({ cors: true, region: "us-central1" }, async (req, res) => {
+export const api = onRequest({ cors: true, region: "us-central1", secrets: ["GEMINI_API_KEY"] }, async (req, res) => {
   if (req.method === "OPTIONS") {
     res.status(204).send("");
     return;
@@ -306,6 +495,7 @@ export const api = onRequest({ cors: true, region: "us-central1" }, async (req, 
     return json(res, 500, { error: "internal_error", details: String((error as Error)?.message || error) });
   }
 });
+
 
 
 

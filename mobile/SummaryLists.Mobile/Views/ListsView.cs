@@ -112,9 +112,30 @@ public sealed class ListsView : ContentPage
             .Bind(Label.TextProperty, nameof(ListsViewModel.SummaryText));
 
         var regenerateSummaryButton = new Button()
-            .Text("Regenerate Summary")
+            .Bind(Button.TextProperty, nameof(ListsViewModel.RegenerateSummaryButtonText))
             .Bind(Button.CommandProperty, nameof(ListsViewModel.RegenerateSummaryCommand))
-            .Bind(IsEnabledProperty, nameof(ListsViewModel.HasSelectedList));
+            .Bind(IsEnabledProperty, nameof(ListsViewModel.CanRegenerateSummary));
+
+        var regenerateSummaryIndicator = new ActivityIndicator()
+            .Bind(ActivityIndicator.IsVisibleProperty, nameof(ListsViewModel.IsRegeneratingSummary))
+            .Bind(ActivityIndicator.IsRunningProperty, nameof(ListsViewModel.IsRegeneratingSummary));
+
+        var regenerateSummaryStatus = new Label()
+            .Text("Generating summary...")
+            .TextColor(Application.Current?.RequestedTheme == AppTheme.Dark
+                ? Color.FromArgb("#B8C7E4")
+                : Color.FromArgb("#5B6B88"))
+            .Bind(IsVisibleProperty, nameof(ListsViewModel.IsRegeneratingSummary));
+
+        var regenerateSummaryRow = new HorizontalStackLayout
+        {
+            Spacing = 8,
+            Children =
+            {
+                regenerateSummaryButton,
+                regenerateSummaryIndicator,
+            },
+        };
 
         var summaryBorder = new Border
         {
@@ -135,10 +156,20 @@ public sealed class ListsView : ContentPage
                     summaryHeading,
                     summaryTitleLabel,
                     summaryTextLabel,
-                    regenerateSummaryButton,
+                    regenerateSummaryRow,
+                    regenerateSummaryStatus,
                 },
             },
         };
+        summaryBorder.Triggers.Add(new DataTrigger(typeof(Border))
+        {
+            Binding = new Binding(nameof(ListsViewModel.IsRegeneratingSummary)),
+            Value = true,
+            Setters =
+            {
+                new Setter { Property = OpacityProperty, Value = 0.7 },
+            },
+        });
 
         var renameListEntry = new Entry()
             .Placeholder("Rename selected list...")
